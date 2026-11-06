@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     # my_apps
+    "apps.pizza",
 ]
 
 MIDDLEWARE = [
