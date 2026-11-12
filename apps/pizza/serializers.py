@@ -3,9 +3,12 @@ from rest_framework import serializers
 from apps.pizza.models import PizzaModel
 
 
-class PizzaSerializer(serializers.ModelSerializer[PizzaModel]):
+# В ModelSerializer поля створення та оновлення вже вшиті в сам серіалайзер
+class PizzaSerializer(
+    serializers.ModelSerializer[PizzaModel]
+):  # Тут додаю типізацію серіалайзера, бо mypy свариться
     class Meta:
-        model = PizzaModel
+        model = PizzaModel  # З якої моделі брати поля і правила валідації
         fields = (
             "id",
             "name",
@@ -13,7 +16,7 @@ class PizzaSerializer(serializers.ModelSerializer[PizzaModel]):
             "price",
             "created_at",
             "updated_at",
-        )
+        )  # Тут кажеться, які поля будуть валідуватися та віддаватися клієнту
 
 
 # from typing import Any
