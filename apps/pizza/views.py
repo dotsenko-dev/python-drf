@@ -1,92 +1,161 @@
-# class PizzaListCreateView(APIView):
-#     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         # pizzas = (
-#         #     PizzaModel.objects.filter(
-#         #         (Q(size__gt=5) | Q(name="domino1")) & Q(price__gt=10)
-#         #     ) # тут фільтр (по розміру більше >5 або ж по назві) та по ціні більше 10
-#         #     .exclude(size=78) # тут виключити потім з попереднього фільтру розмір 78
-#         #     .order_by("size", "-price") # знову ж таки від попереднього фільтру відсортувати по розміру і потім це все за спаданням ціни
-#         #     .reverse() # і це все розвернути
-#         # )
-#         # pizzas = PizzaModel.objects.all()[1:6:2] # робимо запит до БД, де будемо брати лише з 1 по 5 індекс піци з кроком 2 (отримаємо піци з індексами 1, 3 та 5) (якби було [1:6], то запиту до БД ще не було б)
-#         # pizzas = PizzaModel.objects.all().values("id", "name", "size") # тут замість об'єктів моделі в QuerySet повертаються словники з вказаними полями
-#         # pizzas = PizzaModel.objects.aggregate(
-#         #     Min("price"), Max("price"), Avg("price"), Count("id")
-#         # ) # Тут одразу йде звернення до БД і повернення словника з мінімальною, максимальною, середньою ціною та кількість піц в БД
-#         # pizzas = PizzaModel.objects.values("name").annotate(count=Count("name")) # annotate підраховує з БД, скільки разів є запис з цим значенням (тут це name) в БД і виводить його нам
-#         # print(pizzas)
-#         # pizzas = pizzas.filter((Q(size__gt=20) | Q(name="domino1")) & Q(price__gt=40)) # додаємо тут Q, щоб можна було не лише "так" робити фільтр, а і "або" додати. Якщо почали використовувати Q, то тепер в цій умові фільтрування лише його і треба скрізь тут використовувати
-#         # qs = PizzaModel.objects.all()
-#         qs = filter_pizza(request.query_params) # тут в нашу функцію filter_pizza передається з урли парамси (запиту до БД ще немає)
-#         serializer = PizzaSerializer(instance=qs, many=True) # Ну і вже тут передається в наш серіалайзер (запиту до БД ще досі немає)
-#         return Response(data=serializer.data, status=status.HTTP_200_OK) # а ось тут вже є запит до БД
-
-#     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         serializer = PizzaSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save() # тут робиться запис до БД і отримується назад лише id (модель попадає в instance)
-#         return Response(data=serializer.data, status=status.HTTP_201_CREATED) # тут вже не робиться повторно запит до БД, а робиться запит до instance
-
-
-# class PizzaRetrieveUpdateDestroyView(APIView):
-#     def get_pizza(self, pk: int) -> PizzaModel:
-#         try:
-#             return PizzaModel.objects.get(pk=pk) # Тут робиться запит до БД по pk і повертається вже готовий об'єкт піца
-#         except PizzaModel.DoesNotExist:
-#             raise NotFound(detail=f"Pizza with ID: {pk} not found")
-
-#     def get(self, *args: Any, **kwargs: Any) -> Response:
-#         pizza = self.get_pizza(kwargs["pk"])
-#         serializer = PizzaSerializer(pizza) # тут вже не робиться запиту до БД, а береться наш об'єкт pizza
-#         return Response(serializer.data, status.HTTP_200_OK) # запиту також до БД немає
-
-#     def put(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         pizza = self.get_pizza(kwargs["pk"]) # запит до бд тут через get_pizza
-#         serializer = PizzaSerializer(pizza, request.data)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save() # ще один запит до бд
-#         return Response(serializer.data, status.HTTP_200_OK)
-
-#     def patch(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         pizza = self.get_pizza(kwargs["pk"])
-#         serializer = PizzaSerializer(pizza, request.data, partial=True)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save()
-#         return Response(serializer.data, status.HTTP_200_OK)
-
-#     def delete(self, *args: Any, **kwargs: Any) -> Response:
-#         self.get_pizza(kwargs["pk"]).delete()
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
+# готові generic-класи DRF: поєднують GenericAPIView з потрібними міксинами
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 
 from apps.pizza.filter import filter_pizza
 from apps.pizza.models import PizzaModel
 from apps.pizza.serializers import PizzaSerializer
 
+# # APIView - базовий клас DRF: сам лише приймає запит і викликає метод (get, post...)
+# # усе інше пишемо руками
+
+# class PizzaListCreateView(APIView):
+#     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+#         # Приклади роботи з ORM (кожен перезаписує попередній, додавши до нього новий фільтр):
+
+#         # filter з Q: (розмір > 5 або назва domino1) і ціна > 10
+#         # Q потрібен для "або" (|), зі звичайними умовами поєднується, якщо Q іде першим
+#         # exclude - прибрати з вибірки піци розміром 78
+#         # order_by("size", "-price") - сортування за розміром, а при однаковому розмірі - за ціною спаданням
+#         # reverse() - розвернути порядок
+#         # pizzas = (PizzaModel.objects.filter(Q(size__gt=5) | Q(name="domino1"), price__gt=10)
+#         #           .exclude(size=78).order_by("size", "-price").reverse())
+
+#         # зріз зі кроком [1:6:2] -> індекси 1, 3, 5, з кроком запит до БД іде одразу
+#         # без кроку [1:6] QuerySet лишається ледачим
+#         # pizzas = PizzaModel.objects.all()[1:6:2]
+
+#         # values - замість об'єктів моделі словники з вказаними полями
+#         # pizzas = PizzaModel.objects.all().values("id", "name", "size")
+
+#         # aggregate - запит до БД одразу, повертає один словник (мінімум, максимум, середнє, кількість)
+#         # pizzas = PizzaModel.objects.aggregate(Min("price"), Max("price"), Avg("price"), Count("id"))
+
+#         # values("name") + annotate - групування: скільки записів з кожною назвою
+#         # pizzas = PizzaModel.objects.values("name").annotate(count=Count("name"))
+
+#         # передаємо params з url у нашу функцію фільтрів, запиту до БД ще немає (QuerySet ледачий)
+#         qs = filter_pizza(request.query_params)
+
+#         # many=True - серіалізуємо список об'єктів, а не один. Запиту до БД ще немає
+#         serializer = PizzaSerializer(instance=qs, many=True)
+
+#         # serializer.data читає QuerySet - саме тут іде запит до БД
+#         return Response(data=serializer.data, status=status.HTTP_200_OK)
+
+#     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+
+#         # data - це дані від клієнта, instance не передано, тому save() викличе create()
+#         serializer = PizzaSerializer(data=request.data)
+
+#         # перевірка даних, якщо не пройшли - raise_exception кидає ValidationError, DRF повертає 400
+#         serializer.is_valid(raise_exception=True)
+
+#         # INSERT у БД: Django передає всі поля (created_at / updated_at він виставив сам), а БД повертає лише новий id, який Django записує в об'єкт у пам'яті (serializer.instance)
+#         serializer.save()
+
+#         # дані беруться з instance, повторного запиту до БД немає
+#         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+
+# class PizzaRetrieveUpdateDestroyView(APIView):
+
+#     # допоміжний метод: знайти піцу за pk або повернути 404
+#     def get_pizza(self, pk: int) -> PizzaModel:
+#         try:
+#             # objects.get() - метод ORM: шукає в БД один запис за pk і повертає готовий об'єкт
+#             return PizzaModel.objects.get(pk=pk)
+#         except PizzaModel.DoesNotExist:
+#             # якщо запису немає, objects.get() кидає DoesNotExist - перекладаємо на NotFound, щоб клієнт отримав 404 з текстом, а не 500
+#             raise NotFound(detail=f"Pizza with ID: {pk} not found")
+
+#     def get(self, *args: Any, **kwargs: Any) -> Response:
+
+#         # kwargs["pk"] - число з <int:pk> в urls.py
+#         # запит до БД (SELECT) через get_pizza. 404, якщо піци немає
+#         pizza = self.get_pizza(kwargs["pk"])
+
+#         # об'єкт вже в пам'яті, нового запиту до БД немає
+#         serializer = PizzaSerializer(pizza)
+#         return Response(serializer.data, status.HTTP_200_OK)
+
+#     def put(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+
+#         # kwargs["pk"] - число з <int:pk> в urls.py
+#         # запит до БД (SELECT) через get_pizza. 404, якщо піци немає
+#         pizza = self.get_pizza(kwargs["pk"])
+
+#         # передали instance (pizza) і data (request.data): тому save() викличе update(), а не create()
+#         serializer = PizzaSerializer(pizza, request.data)
+
+#         # перевірка даних, якщо не пройшли - raise_exception кидає ValidationError, DRF повертає 400
+#         serializer.is_valid(raise_exception=True)
+
+#         # save() викликає update(instance, validated_data): значення з validated_data записуються в об'єкт pizza в пам'яті (setattr), потім pizza.save() виконує UPDATE у БД
+#         # updated_at при цьому оновлюється сам (auto_now), created_at не змінюється
+#         serializer.save()
+
+#         return Response(serializer.data, status.HTTP_200_OK)
+
+#     def patch(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+#         pizza = self.get_pizza(kwargs["pk"])
+
+#         # partial=True: перевіряються лише передані поля, решта лишається як була (без нього відсутнє обов'язкове поле дало б 400)
+#         serializer = PizzaSerializer(pizza, request.data, partial=True)
+#         serializer.is_valid(raise_exception=True)
+#         serializer.save()
+#         return Response(serializer.data, status.HTTP_200_OK)
+
+#     def delete(self, *args: Any, **kwargs: Any) -> Response:
+
+#         # знаходимо (404, якщо немає) і видаляємо запис з БД
+#         self.get_pizza(kwargs["pk"]).delete()
+
+#         # 204 No Content: успіх, тіло відповіді відсутнє
+#         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# # GenericAPIView дає інструменти (get_queryset, get_serializer, get_object), але сам нічого не виконує
+# # дії дають міксини: ListModelMixin - list, CreateModelMixin - create
+# # методи get і post пишемо самі й вручну передаємо в міксини.
+
 # class PizzaListCreateView(GenericAPIView, ListModelMixin, CreateModelMixin):
-#     def get_queryset(self): # Тут ми перезаписуємо стандартний get_queryset в GenericAPIView на власний з фільтрами (queryset там залишається None, він нам тут не потрібен)
+
+#     # перевизначаємо get_queryset з GenericAPIView
+#     # атрибут queryset з GenericAPIView лишається None, тут (в цьому класі) він не потрібен
+#     def get_queryset(self):
 #         return filter_pizza(self.request.query_params)
-#     serializer_class = PizzaSerializer # Тут так само в GenericAPIView перезаписуємо serializer_class з None на наш серіалізатор
+
+#     # який серіалізатор використовувати для цього view: GenericAPIView бере його в get_serializer()
+#     # PizzaSerializer перевіряє дані від клієнта (POST) і перетворює об'єкти моделі на JSON у відповіді
+#     serializer_class = PizzaSerializer
 
 #     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         # Тут в наслідуваних модулях (super(), тут це GenericAPIView, ListModelMixin, CreateModelMixin) шукаємо метод list (він є в ListModelMixin) та передаємо в нього request (правда поки що не можу в'їхати, нащо?, ми ж його там не використовуємо), який в queryset записує викликаний метод get_queryset() і в serializer записує викликаний метод get_serializer() з GenericAPIView який в свою чергу використовує наш serializer_class (тобто PizzaSerializer)
+
+#         # шукаємо метод list серед батьківських класів (він у ListModelMixin)
+#         # list бере записи через get_queryset(), серіалізує через get_serializer() і повертає Response
 #         return super().list(request, *args, **kwargs)
 
 #     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         # Тут для post те ж саме, але з CreateModelMixin і тут ми вже використовуємо для data наш request
+
+#         # те саме з CreateModelMixin - create() використовує request.data для створення запису
 #         return super().create(request, *args, **kwargs)
 
+# те саме, що в PizzaListCreateView: GenericAPIView дає інструменти (get_queryset, get_serializer, get_object), а дії дають міксини: RetrieveModelMixin - retrieve, UpdateModelMixin - update і partial_update, DestroyModelMixin - destroy
+# методи get, put, patch, delete пишемо самі й вручну передаємо в міксини.
+# на відміну від списку, тут працюємо з одним записом: його знаходить get_object() за pk з url (<int:pk>)
 
 # class PizzaRetrieveUpdateDestroyView(
 #     GenericAPIView, RetrieveModelMixin, UpdateModelMixin, DestroyModelMixin
 # ):
-#     # Тут в GenericAPIView в queryset замість None записуємо інструкцію-звернення до БД і там же, всередині GenericAPIView є метод get_queryset що робить при кожному запиті нову копію цієї інструкції (query.all()), щоб система не тягнула попередній кеш попереднього звернення
+#     # get_queryset() у GenericAPIView бере його копію (.all()) на кожен запит, щоб не тягнути кеш попереднього звернення
 #     queryset = PizzaModel.objects.all()
+
+#     # який серіалізатор використовувати для цього view: GenericAPIView бере його в get_serializer()
+#     # PizzaSerializer перевіряє дані від клієнта (PUT/PATCH) і перетворює об'єкти моделі на JSON у відповіді
 #     serializer_class = PizzaSerializer
 
-#     # Тут все те ж саме, що і вище ( звернення до відповідних міксинів)
+#     # кожен HTTP-метод передаємо у відповідний метод міксина (retrieve - один запис, update - PUT, partial_update - PATCH, destroy - DELETE)
+#     # шукається об'єкт за pk через get_object() і самостійно повертається 404 та потрібні статуси (200, 204)
 #     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
 #         return super().retrieve(request, *args, **kwargs)
 
@@ -100,16 +169,31 @@ from apps.pizza.serializers import PizzaSerializer
 #         return super().destroy(request, *args, **kwargs)
 
 
-# Тут все те ж саме, але ListCreateAPIView та RetrieveUpdateDestroyAPIView об'єднують в собі уже відповідні міксини
+# ListCreateAPIView прив'язує HTTP-методи до міксинів: GET -> list (список), POST -> create (створення)
+# ручний код з APIView вище (звернення до БД, серіалізатор, is_valid, save, Response) клас виконує сам: create перевіряє дані, зберігає й повертає 201 з даними створеної піци
+
+
 class PizzaListCreateView(ListCreateAPIView):
+    # який серіалізатор використовувати для цього view: GenericAPIView бере його в get_serializer()
+    # PizzaSerializer перевіряє дані від клієнта (POST/PUT/PATCH) і перетворює об'єкти моделі на JSON у відповіді
     serializer_class = PizzaSerializer
 
+    # тут ми змінюємо стандартний query_set з GenericAPIView на власний
     def get_queryset(self):
         return filter_pizza(self.request.query_params)
 
 
+# RetrieveUpdateDestroyAPIView: GET -> retrieve, PUT -> update, PATCH -> partial_update, DELETE -> destroy, сам шукає піцу за pk з URL (get_object). Якщо її немає - повертає 404
+# DELETE повертає 204 без тіла, PATCH приймає не всі поля (partial)
+
+
 class PizzaRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
+    # з чого шукати об'єкт. get_queryset() бере його копію (.all()) на кожен запит, щоб не тягнути кеш попереднього
     queryset = PizzaModel.objects.all()
+
+    # який серіалізатор використовувати для цього view: GenericAPIView бере його в get_serializer()
+    # PizzaSerializer перевіряє дані від клієнта (POST/PUT/PATCH) і перетворює об'єкти моделі на JSON у відповіді
     serializer_class = PizzaSerializer
-    # Тут треба прописати методи, які можливо опрацьовувати з postman
+
+    # обмежує дозволені HTTP-методи: інші (PATCH, POST...) отримують 405 Method Not Allowed
     http_method_names = ("get", "put", "delete")

@@ -1,10 +1,6 @@
-# from django.db.models import QuerySet
-# from django.http import QueryDict
-# from rest_framework.exceptions import ValidationError
-
-# from apps.pizza.models import PizzaModel
-
-
+# Старий варіант: кожен фільтр окремим case в match. Той самий шаблон qs.filter(...) повторюється
+# Не ловляться помилки
+# Замінено словником ALLOWED_FILTERS
 # def filter_pizza(query_params: QueryDict) -> QuerySet:
 #     qs = PizzaModel.objects.all()
 
@@ -50,16 +46,22 @@
 #     return qs
 
 
+# ValidationError з Django (ORM) - його кидає filter(), коли значення не підходить типу поля. Псевдонім потрібен, бо в DRF є клас з такою самою назвою
 from django.core.exceptions import (
-    ValidationError as DjangoValidationError,  # Роблю псевдонім, щоб прибрати конфлікти з rest_framework (одна назва)
+    ValidationError as DjangoValidationError,
 )
 from django.db.models import QuerySet
 from django.http import QueryDict
+
+# ValidationError з DRF - з нього DRF сам робить відповідь 400 з текстом помилки
 from rest_framework.exceptions import ValidationError
 
 from apps.pizza.models import PizzaModel
 
-# Білий список в URL (ті фільтри, які код обробляє)
+# словник дозволених фільтрів:
+# ключ - параметр в URL (те, що пише клієнт), значення - умова ORM (те, що розуміє filter()).
+# Все, чого тут немає, відхиляється
+# суфікси: gt/gte - більше/більше або дорівнює, lt/lte - менше/менше або дорівнює, iexact/icontains/istartswith - збіг/містить/починається з, літера i = без урахування регістру
 ALLOWED_FILTERS = {
     "price_eq": "price",
     "price_gt": "price__gt",
@@ -77,30 +79,37 @@ ALLOWED_FILTERS = {
 }
 
 
+# приймає параметри запиту (?price_gt=100&name_contains=dom), повертає відфільтрований QuerySet;
+# викликається з get_queryset у нашому view
 def filter_pizza(query_params: QueryDict) -> QuerySet[PizzaModel]:  # Типізую qs
-    qs = (
-        PizzaModel.objects.all()
-    )  # Початковий QuerySet: усі піци. Запиту до БД ще немає
+    # початковий QuerySet - усі піци. QuerySet ледачий, запиту до БД ще немає
+    qs = PizzaModel.objects.all()
 
-    for k, v in query_params.items():  # Перебираю поля ключ: значення з params
-        if k not in ALLOWED_FILTERS:  # Параметра немає в білому списку
+    # перебираємо пари ключ-значення з URL (значення завжди рядки)
+    for k, v in query_params.items():
+        # невідомий параметр - одразу 400
+        if k not in ALLOWED_FILTERS:
             raise ValidationError(
                 {k: [f"Unknown filter. Allowed: {', '.join(ALLOWED_FILTERS)}"]}
-            )  # Кидаю помилку 400 з цим текстом
+            )
 
         try:
-            qs = qs.filter(
-                **{ALLOWED_FILTERS[k]: v}
-            )  # розгортаю білий список і ставлю умову фільтра по ключу-значенню
-        except DjangoValidationError as e:  # Якщо помилка значень в decimal та дата
-            raise ValidationError(
-                {k: e.messages}
-            )  # Перекидаю повідомлення помилки з django (filter) в DRF
-        except ValueError as e:  # Помилка виникає, якщо число мусить бути цілим
-            raise ValidationError(
-                {k: [str(e)]}
-            )  # Кидаю в DRF помилку по стандарту, що і вище
-        except Exception:  # Ловлю невраховані помилки
+            # **{...} розпаковує словник в іменований аргумент:
+            # для price_gt=100 це filter(price__gt="100");
+            # кілька filter() поспіль звужують результат: у ньому лишаються лише піци, що підходять під усі умови одразу
+            # значення перевіряється вже тут, тому помилки типу "abc замість числа" вилітають у filter()
+            qs = qs.filter(**{ALLOWED_FILTERS[k]: v})
+        # значення не можна перетворити на тип поля (наприклад price=abc для DecimalField)
+        except DjangoValidationError as e:
+            # перекладаємо помилку django на помилку DRF, щоб клієнт отримав 400, а не 500
+            raise ValidationError({k: e.messages})
+        # те саме для цілих полів (size=abc)
+        except ValueError as e:
+            raise ValidationError({k: [str(e)]})
+        # страховка на випадок іншої помилки значення
+        # недолік: такий перехоплювач може сховати справжню помилку в коді
+        except Exception:
             raise ValidationError({k: ["Invalid value for this parameter."]})
 
-    return qs  # Повертаю створений QuerySet (запиту до БД ще немає)
+    # повертаємо QuerySet. Запит до БД піде пізніше, коли наш view почне його читати
+    return qs

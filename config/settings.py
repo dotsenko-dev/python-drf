@@ -10,10 +10,16 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# читає .env, щоб python отримав ці змінні
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -30,12 +36,14 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
+# Тут ми дописуємо застосунки, які django підключає до проекту
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
-    # my_apps
-    "apps.pizza",
+    # my_apps - відокремлюємо власні застосунки
+    "core",  # тут лише абстрактна BaseModel. Власної таблиці та міграцій немає. Поля з моделі цієї апки потрапляють в таблиці нащадків. Для успадкування цей допис тут необов'язковий, але додано, щоб core був зареєстрований як застосунок
+    "apps.pizza",  # застосунок з повноцінними view, serializer, models, urls... Його моделі створюють таблиці та міграції
 ]
 
 MIDDLEWARE = [
@@ -66,14 +74,19 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
+# словник підключення до БД
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": "db_drf",
-        "USER": "user",
-        "PASSWORD": "password",
-        "HOST": "127.0.01",
-        "PORT": "3307",
+        "ENGINE": "django.db.backends.mysql",  # вказує django, який драйвер використовувати для роботи з БД
+        # name, user, password - значення з .env, що mysql використовує для створення БД в контейнері докера
+        # якщо в os.environ[...] не передамо змінну, то помилка KeyError
+        "NAME": os.environ["MYSQL_DATABASE"],
+        "USER": os.environ["MYSQL_USER"],
+        "PASSWORD": os.environ["MYSQL_PASSWORD"],
+        # адреса, за якою django знаходить сервер mysql (локально, бо докер прокидає свій внутрішній 3306 порт на нашу машину)
+        "HOST": "127.0.0.1",
+        # порт на хості, що докер прокидує на свій внутрішній 3306 порт в контейнері
+        "PORT": os.environ["DB_PORT"],
     }
 }
 
@@ -124,4 +137,6 @@ MAILERS = {
     },
 }
 
+# True (за замовчуванням): "/pizzas" без кінцевого слеша → редирект 301 на "/pizzas/" (лише якщо маршрут оголошений зі слешем в кінці; для POST буде помилка 500).
+# False: без редиректів, одразу 404.
 APPEND_SLASH = False

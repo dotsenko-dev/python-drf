@@ -10,6 +10,7 @@ mypy==2.4.1
 mypy_extensions==1.2.0
 mysqlclient==2.3.0
 pathspec==1.1.1
+python-dotenv==1.2.4
 sqlparse==0.6.1
 types-PyYAML==6.0.12.20261103
 typing_extensions==4.16.0
