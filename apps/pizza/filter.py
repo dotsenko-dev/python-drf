@@ -108,7 +108,7 @@ def filter_pizza(query_params: QueryDict) -> QuerySet[PizzaModel]:  # Типіз
             raise ValidationError({k: [str(e)]})
         # страховка на випадок іншої помилки значення
         # недолік: такий перехоплювач може сховати справжню помилку в коді
-        except Exception:
+        except Exception:  # noqa: BLE001
             raise ValidationError({k: ["Invalid value for this parameter."]})
 
     # повертаємо QuerySet. Запит до БД піде пізніше, коли наш view почне його читати

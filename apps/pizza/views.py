@@ -175,7 +175,8 @@ from apps.pizza.serializers import PizzaSerializer
 
 class PizzaListCreateView(ListCreateAPIView):
     # який серіалізатор використовувати для цього view: GenericAPIView бере його в get_serializer()
-    # PizzaSerializer перевіряє дані від клієнта (POST/PUT/PATCH) і перетворює об'єкти моделі на JSON у відповіді
+    # POST: PizzaSerializer перевіряє дані від клієнта і викликає метод запису даних в БД
+    # GET та POST: PizzaSerializer перетворює об'єкти моделі на JSON у відповіді
     serializer_class = PizzaSerializer
 
     # тут ми змінюємо стандартний query_set з GenericAPIView на власний
@@ -183,8 +184,11 @@ class PizzaListCreateView(ListCreateAPIView):
         return filter_pizza(self.request.query_params)
 
 
-# RetrieveUpdateDestroyAPIView: GET -> retrieve, PUT -> update, PATCH -> partial_update, DELETE -> destroy, сам шукає піцу за pk з URL (get_object). Якщо її немає - повертає 404
-# DELETE повертає 204 без тіла, PATCH приймає не всі поля (partial)
+# RetrieveUpdateDestroyAPIView вміє: GET -> retrieve, PUT -> update, PATCH -> partial_update, DELETE -> destroy
+# Але в цьому класі PATCH свідомо заблокований через http_method_names: отримує 405 Method Not Allowed
+# GET, PUT та DELETE шукають піцу за pk з url (get_object()) і якщо її немає, то повертають 404
+# PUT вимагає всі обов'язкові поля (повна заміна)
+# DELETE повертає 204 без тіла
 
 
 class PizzaRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
@@ -192,8 +196,11 @@ class PizzaRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     queryset = PizzaModel.objects.all()
 
     # який серіалізатор використовувати для цього view: GenericAPIView бере його в get_serializer()
-    # PizzaSerializer перевіряє дані від клієнта (POST/PUT/PATCH) і перетворює об'єкти моделі на JSON у відповіді
+    # PUT: PizzaSerializer перевіряє тут дані від клієнта та викликає метод перезапису даних в БД
+    # GET та PUT: PizzaSerializer перетворює об'єкти моделі на JSON у відповіді
+    # DELETE серіалізатор не використовує: відповідь без тіла
     serializer_class = PizzaSerializer
 
-    # обмежує дозволені HTTP-методи: інші (PATCH, POST...) отримують 405 Method Not Allowed
+    # дозволені HTTP-методи: GET, PUT, DELETE
+    # PATCH клас підтримує, але він тут свідомо заблокований: отримує 405 Method Not Allowed
     http_method_names = ("get", "put", "delete")

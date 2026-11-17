@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # my_apps - відокремлюємо власні застосунки
     "core",  # тут лише абстрактна BaseModel. Власної таблиці та міграцій немає. Поля з моделі цієї апки потрапляють в таблиці нащадків. Для успадкування цей допис тут необов'язковий, але додано, щоб core був зареєстрований як застосунок
-    "apps.pizza",  # застосунок з повноцінними view, serializer, models, urls... Його моделі створюють таблиці та міграції
+    "apps.pizza",  # шлях до пакета: Django сам шукає клас у apps.py
+    # "apps.pizza.apps.PizzaConfig",  # шлях до самого класу конфігурації
 ]
 
 MIDDLEWARE = [
@@ -83,7 +84,7 @@ DATABASES = {
         "USER": os.environ["MYSQL_USER"],
         "PASSWORD": os.environ["MYSQL_PASSWORD"],
         # адреса, за якою django знаходить сервер mysql (локально, бо докер прокидає свій внутрішній 3306 порт на нашу машину)
-        "HOST": "127.0.0.1",
+        "HOST": os.environ["DB_HOST"],
         # порт на хості, що докер прокидує на свій внутрішній 3306 порт в контейнері
         "PORT": os.environ["DB_PORT"],
     }
