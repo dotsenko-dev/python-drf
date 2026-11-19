@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
+    # DRF: шаблони й стилі сторінки Browsable API в браузері (JSON у Postman працює й без цього запису)
+    "rest_framework",
     # my_apps - відокремлюємо власні застосунки
     "core",  # тут лише абстрактна BaseModel. Власної таблиці та міграцій немає. Поля з моделі цієї апки потрапляють в таблиці нащадків. Для успадкування цей допис тут необов'язковий, але додано, щоб core був зареєстрований як застосунок
     "apps.pizza",  # шлях до пакета: Django сам шукає клас у apps.py
